@@ -6,16 +6,33 @@
   <title>Uganda Weather and Planting Advisor</title>
 </head>
 <body>
-  <h1>Weather and Planting Advisor: Milestone 2</h1>
+  <h1>Weather and Planting Advisor: Milestone 3</h1>
 
-  <label for="districtSelect">Choose your district:</label>
+  <h2>1. Location</h2>
+  <label for="districtSelect">Choose a district:</label>
   <select id="districtSelect"></select>
 
+  <p>Or search for a town, village or place:</p>
+  <label for="searchInput">Place name:</label>
+  <input type="text" id="searchInput" placeholder="e.g. Kyenjojo">
+  <button id="searchButton">Search</button>
+  <select id="searchResults" hidden></select>
+  <p id="searchMessage"></p>
+
+  <h2>2. Crop</h2>
+  <label for="cropSelect">Choose your crop:</label>
+  <select id="cropSelect"></select>
+
+  <h2>3. Farming activity</h2>
+  <label for="activitySelect">Choose the activity:</label>
+  <select id="activitySelect"></select>
+
+  <p><strong>Selected location:</strong> <span id="locationLabel"></span></p>
   <button id="forecastButton">Get forecast</button>
-  <pre id="output">Pick a district and click the button.</pre>
+  <pre id="output">Make your choices and click "Get forecast".</pre>
 
   <script>
-    // 1. The "phone book" of districts (approximate coordinates)
+    // ---------- 1. DATA ----------
     const districts = [
       { name: "Kampala",    latitude: 0.3476,  longitude: 32.5825 },
       { name: "Wakiso",     latitude: 0.4044,  longitude: 32.4594 },
@@ -37,23 +54,98 @@
       { name: "Kasese",     latitude: 0.1833,  longitude: 30.0833 },
       { name: "Masaka",     latitude: -0.3136, longitude: 31.7409 },
       { name: "Mbarara",    latitude: -0.6072, longitude: 30.6545 },
-      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 }
+      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 },
+      { name: "Rukungiri",  latitude: -0.7928, longitude: 29.9417 },
+      { name: "Ntungamo",   latitude: -0.8833, longitude: 30.2667 },
+      { name: "Bushenyi",   latitude: -0.5417, longitude: 30.2000 },
+      { name: "Kisoro",     latitude: -1.3536, longitude: 29.6986 },
+      { name: "Kanungu",    latitude: -0.9667, longitude: 29.7833 },
+      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 },
+      { name: "Rakai",      latitude: -1.0000, longitude: 31.4000 },
+      { name: "Lyantonde",  latitude: -0.4000, longitude: 31.1500 },
+      { name: "Sembabule",  latitude: -0.0800, longitude: 31.4600 },
+      { name: "Bukomansimbi", latitude: -0.1500, longitude: 31.5000 },
+      { name: "Lwengo",     latitude: -0.2500, longitude: 31.5500 },
+      { name: "Kalungu",    latitude: -0.3000, longitude: 31.6000 },
+      { name: "Kyotera",    latitude: -0.3500, longitude: 31.6500 },
+      { name: "Masindi",    latitude: 1.6744,  longitude: 31.7150 },
+      { name: "Buliisa",    latitude: 2.0000,  longitude: 31.4000 },
+      { name: "Nakasongola",latitude: 1.3000,  longitude: 32.4500 },
+      { name: "Amolatar",   latitude: 1.6500,  longitude: 32.7500 },
+      { name: "Dokolo",     latitude: 2.2500,  longitude: 33.2000 },
+      { name: "Kaberamaido",latitude: 1.7500,  longitude: 33.0000 },
+      { name: "Pader",      latitude: 3.0500,  longitude: 33.0000 },
+      { name: "Kitgum",     latitude: 3.2783,  longitude: 32.8867 },
+      { name: "Lamwo",      latitude: 3.5000,  longitude: 32.8000 },
+      { name: "Agago",      latitude: 2.9000,  longitude: 33.2000 }
     ];
 
-    // 2. Grab the page elements we need
+    const crops = [
+      "Maize", "Beans", "Coffee", "Bananas (matooke)", "Cassava",
+      "Sweet potatoes", "Rice", "Groundnuts", "Tomatoes", "Onions",
+"Cabbage", "Sorghum", "Millet", "Sunflower", "Sugarcane",
+      "Tea", "Tobacco", "Pineapples", "Avocado", "Mangoes",
+        "Passion fruit", "Papaya", "Watermelon", "Citrus fruits", "Vegetables",
+        "Potatoes", "Yams", "Cocoa", "Sesame", "Chili peppers",
+        "Cucumbers", "Pumpkins", "Spinach", "Carrots", "Eggplants",
+        "Okra", "Peas", "Lettuce", "Broccoli", "Cauliflower",
+        "Brussels sprouts", "Kale", "Collard greens", "Mustard greens", "Swiss chard", "Arugula", "Radishes", "Beets", "Turnips",
+        "Leeks", "Scallions", "Shallots", "Garlic", "Ginger", "Turmeric", "Herbs (basil, parsley, cilantro, etc.)", "Moringa", "Baobab", "Jatropha",
+        "Oil palm", "Rubber", "Cotton", "Hemp", "Flax", "Sunflower", "Safflower", "Canola", "Sesame", "Castor bean",
+        "Jojoba", "Neem", "Aloe vera", "Cactus", "Bamboo", "Teak", "Eucalyptus", "Mahogany", "Acacia", "Pine", "Cedar", "Fir", "Spruce", "Redwood",
+        "Cypress", "Hemlock", "Larch", "Douglas fir", "Sequoia", "Baobab", "Kapok", "Mangrove", "Palm trees", "Fruit trees (apple, pear, peach, etc.)", "Nut trees (almond, walnut, cashew, etc.)",
+        "Ornamental plants (flowers, shrubs, etc.)", "Medicinal plants (aloe, ginseng, echinacea, etc.)", "Spices (cinnamon, cloves, nutmeg, etc.)", "Tea plants", "Coffee plants", "Cacao trees", "Vanilla orchids", "Peppermint", "Spearmint", "Lemongrass", "Chamomile", "Lavender", "Rosemary", "Thyme", "Oregano", "Sage", "Bay leaves"
+    ];
+
+    const activities = ["Planting", "Irrigating", "Spraying", "Harvesting"];
+
+    // The location currently chosen (starts as the first district)
+    let selectedLocation = districts[0];
+    // The matches returned by the last place search
+    let searchMatches = [];
+
+    // ---------- 2. PAGE ELEMENTS ----------
     const districtSelect = document.getElementById("districtSelect");
+    const searchInput = document.getElementById("searchInput");
+    const searchButton = document.getElementById("searchButton");
+    const searchResults = document.getElementById("searchResults");
+    const searchMessage = document.getElementById("searchMessage");
+    const cropSelect = document.getElementById("cropSelect");
+    const activitySelect = document.getElementById("activitySelect");
+    const locationLabel = document.getElementById("locationLabel");
     const forecastButton = document.getElementById("forecastButton");
     const output = document.getElementById("output");
 
-    // 3. Fill the dropdown from the list
-    districts.forEach(function (district, index) {
-      const option = document.createElement("option");
-      option.value = index;
-      option.textContent = district.name;
-      districtSelect.appendChild(option);
-    });
+    // ---------- 3. HELPER FUNCTIONS ----------
+    function fillDropdown(selectElement, labels) {
+      labels.forEach(function (label, index) {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = label;
+        selectElement.appendChild(option);
+      });
+    }
 
-    // 4. Get a forecast for any coordinates
+    function updateLocationLabel() {
+      locationLabel.textContent = selectedLocation.name +
+        " (" + selectedLocation.latitude + ", " + selectedLocation.longitude + ")";
+    }
+
+    // ---------- 4. API FUNCTIONS ----------
+    async function searchPlaces(name) {
+      const url =
+        "https://geocoding-api.open-meteo.com/v1/search" +
+        "?name=" + encodeURIComponent(name) +
+        "&count=5&language=en&format=json&countryCode=UG";
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Search failed with status " + response.status);
+      }
+      const data = await response.json();
+      return data.results || [];
+    }
+
     async function getForecast(latitude, longitude) {
       const url =
         "https://api.open-meteo.com/v1/forecast" +
@@ -71,23 +163,84 @@
       return data.daily;
     }
 
-    // 5. What happens when the button is clicked
-    async function handleClick() {
-      const chosen = districts[districtSelect.value];
-      output.textContent = "Loading forecast for " + chosen.name + "...";
+    // ---------- 5. EVENT HANDLERS ----------
+    function useDistrict() {
+      selectedLocation = districts[districtSelect.value];
+      updateLocationLabel();
+    }
+
+    function useSearchMatch() {
+      const place = searchMatches[searchResults.value];
+      selectedLocation = {
+        name: place.name,
+        latitude: place.latitude,
+        longitude: place.longitude
+      };
+      updateLocationLabel();
+    }
+
+    async function handleSearch() {
+      const name = searchInput.value.trim();
+      if (name === "") {
+        searchMessage.textContent = "Please type a place name first.";
+        return;
+      }
+
+      searchMessage.textContent = "Searching...";
+      searchResults.hidden = true;
 
       try {
-        const daily = await getForecast(chosen.latitude, chosen.longitude);
+        searchMatches = await searchPlaces(name);
+
+        if (searchMatches.length === 0) {
+          searchMessage.textContent =
+            "No place found in Uganda with that name. Check the spelling or pick a district.";
+          return;
+        }
+
+        searchResults.innerHTML = "";
+        const labels = searchMatches.map(function (place) {
+          return place.admin1 ? place.name + ", " + place.admin1 : place.name;
+        });
+        fillDropdown(searchResults, labels);
+        searchResults.hidden = false;
+
+        useSearchMatch();
+        searchMessage.textContent =
+          "Found " + searchMatches.length + " match(es). Make sure the right one is selected.";
+      } catch (error) {
+        searchMessage.textContent = "Something went wrong: " + error.message;
+      }
+    }
+
+    async function handleForecast() {
+      const crop = crops[cropSelect.value];
+      const activity = activities[activitySelect.value];
+
+      output.textContent = "Loading forecast for " + selectedLocation.name + "...";
+
+      try {
+        const daily = await getForecast(selectedLocation.latitude, selectedLocation.longitude);
         output.textContent =
-          "District: " + chosen.name + "\n" +
-          "Coordinates: " + chosen.latitude + ", " + chosen.longitude + "\n\n" +
+          "Location: " + selectedLocation.name + "\n" +
+          "Crop: " + crop + "\n" +
+          "Activity: " + activity + "\n\n" +
           JSON.stringify(daily, null, 2);
       } catch (error) {
         output.textContent = "Something went wrong: " + error.message;
       }
     }
 
-    forecastButton.addEventListener("click", handleClick);
+    // ---------- 6. START-UP ----------
+    fillDropdown(districtSelect, districts.map(function (d) { return d.name; }));
+    fillDropdown(cropSelect, crops);
+    fillDropdown(activitySelect, activities);
+    updateLocationLabel();
+
+    districtSelect.addEventListener("change", useDistrict);
+    searchResults.addEventListener("change", useSearchMatch);
+    searchButton.addEventListener("click", handleSearch);
+    forecastButton.addEventListener("click", handleForecast);
   </script>
 </body>
 </html>
