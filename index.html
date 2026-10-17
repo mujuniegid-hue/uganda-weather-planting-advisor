@@ -9,6 +9,8 @@
     body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 1rem; line-height: 1.4; }
     label { display: block; margin-top: 0.75rem; font-weight: bold; }
     select, input, button { font-size: 1rem; min-height: 44px; padding: 0.4rem 0.6rem; margin: 0.25rem 0; }
+    input[type="checkbox"] { min-height: auto; width: auto; margin-right: 0.5rem; }
+    .check { font-weight: normal; }
     button { background: #2e8b3d; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; cursor: pointer; }
     button:disabled { background: #999; cursor: not-allowed; }
     .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
@@ -38,12 +40,16 @@
   <label for="districtSelect">Choose a district:</label>
   <select id="districtSelect"></select>
 
-  <p>Or search for a town, village or place:</p>
+  <p>Or search for a town, sub-county, parish or village <strong>inside the district you chose above</strong>:</p>
   <label for="searchInput">Place name:</label>
   <div class="row">
-    <input type="text" id="searchInput" placeholder="e.g. Kyenjojo">
+    <input type="text" id="searchInput" placeholder="e.g. your village or sub-county name">
     <button id="searchButton">Search</button>
   </div>
+  <label class="check" for="onlyDistrict">
+    <input type="checkbox" id="onlyDistrict" checked>
+    Show only places labelled inside the selected district
+  </label>
   <label for="searchResults" id="searchResultsLabel" hidden>Matches found:</label>
   <select id="searchResults" hidden></select>
   <p id="searchMessage" role="status"></p>
@@ -64,38 +70,47 @@
     // ---------- 1. DATA AND SETTINGS ----------
     const REQUEST_TIMEOUT_MS = 10000; // stop waiting after 10 seconds
 
-    const districts = [
-      { name: "Kampala",    latitude: 0.3476,  longitude: 32.5825 },
-      { name: "Wakiso",     latitude: 0.4044,  longitude: 32.4594 },
-      { name: "Mukono",     latitude: 0.3533,  longitude: 32.7553 },
-      { name: "Jinja",      latitude: 0.4244,  longitude: 33.2041 },
-      { name: "Iganga",     latitude: 0.6092,  longitude: 33.4686 },
-      { name: "Tororo",     latitude: 0.6928,  longitude: 34.1810 },
-      { name: "Mbale",      latitude: 1.0821,  longitude: 34.1750 },
-      { name: "Soroti",     latitude: 1.7147,  longitude: 33.6111 },
-      { name: "Moroto",     latitude: 2.5345,  longitude: 34.6666 },
-      { name: "Lira",       latitude: 2.2499,  longitude: 32.8998 },
-      { name: "Gulu",       latitude: 2.7724,  longitude: 32.2881 },
-      { name: "Kitgum",     latitude: 3.2783,  longitude: 32.8867 },
-      { name: "Arua",       latitude: 3.0200,  longitude: 30.9110 },
-      { name: "Masindi",    latitude: 1.6744,  longitude: 31.7150 },
-      { name: "Hoima",      latitude: 1.4331,  longitude: 31.3524 },
-      { name: "Mubende",    latitude: 0.5594,  longitude: 31.3958 },
-      { name: "Kabarole",   latitude: 0.6710,  longitude: 30.2748 },
-      { name: "Kasese",     latitude: 0.1833,  longitude: 30.0833 },
-      { name: "Masaka",     latitude: -0.3136, longitude: 31.7409 },
-      { name: "Mbarara",    latitude: -0.6072, longitude: 30.6545 },
-      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 }
+    // District names (from my own knowledge, not an official file; new districts may be missing).
+    // Coordinates are looked up when the farmer clicks "Get forecast".
+    const districtNames = [
+      "Abim", "Adjumani", "Agago", "Alebtong", "Amolatar", "Amudat", "Amuria", "Amuru", "Apac", "Arua",
+      "Budaka", "Bududa", "Bugiri", "Bugweri", "Buhweju", "Buikwe", "Bukedea", "Bukomansimbi", "Bukwo",
+      "Bulambuli", "Buliisa", "Bundibugyo", "Bunyangabu", "Bushenyi", "Busia", "Butaleja", "Butambala",
+      "Butebo", "Buvuma", "Buyende", "Dokolo", "Gomba", "Gulu", "Hoima", "Ibanda", "Iganga", "Isingiro",
+      "Jinja", "Kaabong", "Kabale", "Kabarole", "Kaberamaido", "Kagadi", "Kakumiro", "Kalaki", "Kalangala",
+      "Kaliro", "Kalungu", "Kampala", "Kamuli", "Kamwenge", "Kanungu", "Kapchorwa", "Kapelebyong",
+      "Karenga", "Kasanda", "Kasese", "Katakwi", "Kayunga", "Kazo", "Kibaale", "Kiboga", "Kibuku",
+      "Kikuube", "Kiruhura", "Kiryandongo", "Kisoro", "Kitagwenda", "Kitgum", "Koboko", "Kole", "Kotido",
+      "Kumi", "Kwania", "Kween", "Kyankwanzi", "Kyegegwa", "Kyenjojo", "Kyotera", "Lamwo", "Lira", "Luuka",
+      "Luwero", "Lwengo", "Lyantonde", "Madi-Okollo", "Manafwa", "Maracha", "Masaka", "Masindi", "Mayuge",
+      "Mbale", "Mbarara", "Mitooma", "Mityana", "Moroto", "Moyo", "Mpigi", "Mubende", "Mukono",
+      "Nabilatuk", "Nakapiripirit", "Nakaseke", "Nakasongola", "Namayingo", "Namisindwa", "Namutumba",
+      "Napak", "Nebbi", "Ngora", "Ntoroko", "Ntungamo", "Nwoya", "Obongi", "Omoro", "Otuke", "Oyam",
+      "Pader", "Pakwach", "Pallisa", "Rakai", "Rubanda", "Rubirizi", "Rukiga", "Rukungiri", "Rwampara",
+      "Sembabule", "Serere", "Sheema", "Sironko", "Soroti", "Terego", "Tororo", "Wakiso", "Yumbe", "Zombo"
     ];
 
-    const crops = [
-      "Maize", "Beans", "Coffee", "Bananas (matooke)", "Cassava",
-      "Sweet potatoes", "Rice", "Groundnuts", "Tomatoes"
+    // Common crops grown in Uganda (not every crop; "Other" is provided)
+    const cropOptions = [
+      "Amaranth (dodo)", "Avocados", "Bambara nuts", "Bananas (dessert)", "Bananas (matooke)", "Barley",
+      "Beans", "Cabbage", "Carrots", "Cashew nuts", "Cassava", "Chilli peppers", "Cocoa", "Coconut",
+      "Coffee (Arabica)", "Coffee (Robusta)", "Cotton", "Cowpeas", "Cucumbers", "Eggplant", "Field peas",
+      "Finger millet", "Garlic", "Ginger", "Green grams", "Green peppers", "Groundnuts", "Irish potatoes",
+      "Jackfruit", "Kale (sukuma wiki)", "Lemons", "Macadamia nuts", "Maize", "Mangoes", "Moringa", "Nakati",
+      "Oil palm", "Okra", "Onions", "Oranges", "Papaya", "Passion fruit", "Pigeon peas", "Pineapples",
+      "Pumpkins", "Rice", "Sesame (simsim)", "Sorghum", "Soybeans", "Spinach", "Sugarcane", "Sunflower",
+      "Sweet potatoes", "Tea", "Tobacco", "Tomatoes", "Vanilla", "Watermelon", "Wheat", "Yams",
+      "Other (not listed)"
     ];
 
     const activities = ["Planting", "Irrigating", "Spraying", "Harvesting"];
 
     const levelLabels = { good: "GOOD", caution: "CAUTION", avoid: "AVOID" };
+
+    // Every district starts without coordinates; they are looked up when needed
+    const districts = districtNames.map(function (name) {
+      return { name: name, latitude: null, longitude: null };
+    });
 
     let selectedLocation = districts[0];
     let searchMatches = [];
@@ -104,6 +119,7 @@
     const districtSelect = document.getElementById("districtSelect");
     const searchInput = document.getElementById("searchInput");
     const searchButton = document.getElementById("searchButton");
+    const onlyDistrict = document.getElementById("onlyDistrict");
     const searchResults = document.getElementById("searchResults");
     const searchResultsLabel = document.getElementById("searchResultsLabel");
     const searchMessage = document.getElementById("searchMessage");
@@ -124,6 +140,11 @@
     }
 
     function updateLocationLabel() {
+      if (selectedLocation.latitude === null) {
+        locationLabel.textContent = selectedLocation.name +
+          " (map position will be found when you click Get forecast)";
+        return;
+      }
       locationLabel.textContent = selectedLocation.name +
         " (" + selectedLocation.latitude + ", " + selectedLocation.longitude + ")";
     }
@@ -156,7 +177,6 @@
     }
 
     // ---------- 4. ERROR HANDLING ----------
-    // Turn a technical error into a message a farmer can understand
     function friendlyError(error) {
       if (!navigator.onLine) {
         return "You seem to be offline. Check your phone data or Wi-Fi and try again.";
@@ -173,6 +193,9 @@
       if (error.message === "BAD_DATA") {
         return "The weather service sent incomplete information. Please try again.";
       }
+      if (error.message === "DISTRICT_NOT_FOUND") {
+        return "We could not find that district's position. Use the place search box instead.";
+      }
       if (error.name === "TypeError") {
         return "Could not reach the weather service. Check your internet connection and try again.";
       }
@@ -180,7 +203,6 @@
     }
 
     // ---------- 5. API FUNCTIONS ----------
-    // One safe way to fetch JSON: with a timeout and clear error codes
     async function fetchJson(url) {
       const controller = new AbortController();
       const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
@@ -201,14 +223,105 @@
       }
     }
 
+    // Source 1: Open-Meteo place search
     async function searchPlaces(name) {
       const url =
         "https://geocoding-api.open-meteo.com/v1/search" +
         "?name=" + encodeURIComponent(name) +
-        "&count=5&language=en&format=json&countryCode=UG";
+        "&count=10&language=en&format=json&countryCode=UG";
 
       const data = await fetchJson(url);
       return data.results || [];
+    }
+
+    // Source 2: OpenStreetMap search. If a district is given, it is added to the search text.
+    async function searchOpenStreetMap(name, district) {
+      const text = district ? name + ", " + district + " District" : name;
+      const url =
+        "https://nominatim.openstreetmap.org/search?format=json&limit=10&countrycodes=ug" +
+        "&q=" + encodeURIComponent(text);
+
+      const data = await fetchJson(url);
+      return data.map(function (item) {
+        const parts = item.display_name.split(", ");
+        parts.pop(); // remove the final word "Uganda"
+        return {
+          name: parts[0],
+          label: parts.slice(0, 4).join(", "),
+          latitude: parseFloat(item.lat),
+          longitude: parseFloat(item.lon)
+        };
+      });
+    }
+
+    // Search both sources, combine without duplicates, and sort by the chosen district
+    async function searchAllPlaces(name, district, onlyInDistrict) {
+      const found = [];
+      const seen = {};
+
+      function addPlace(place) {
+        const key = place.name.toLowerCase() + place.latitude.toFixed(2) + place.longitude.toFixed(2);
+        if (!seen[key]) {
+          seen[key] = true;
+          found.push(place);
+        }
+      }
+
+      const official = await searchPlaces(name);
+      official.forEach(function (p) {
+        const label = [p.name, p.admin2, p.admin1].filter(Boolean).join(", ");
+        addPlace({ name: p.name, label: label, latitude: p.latitude, longitude: p.longitude });
+      });
+
+      try {
+        let osm = await searchOpenStreetMap(name, district);
+        if (osm.length === 0) {
+          osm = await searchOpenStreetMap(name, ""); // try again without the district
+        }
+        osm.forEach(addPlace);
+      } catch (error) {
+        console.error(error); // if this second source fails, keep the first results
+      }
+
+      // Split matches into "labelled inside the chosen district" and "elsewhere"
+      const inside = [];
+      const outside = [];
+      const wanted = district.toLowerCase();
+      found.forEach(function (place) {
+        if (place.label.toLowerCase().indexOf(wanted) !== -1) {
+          place.inDistrict = true;
+          inside.push(place);
+        } else {
+          place.inDistrict = false;
+          outside.push(place);
+        }
+      });
+
+      if (onlyInDistrict && inside.length > 0) {
+        return { places: inside.slice(0, 8), note: "" };
+      }
+      if (onlyInDistrict && inside.length === 0 && outside.length > 0) {
+        return {
+          places: outside.slice(0, 8),
+          note: "No match was labelled inside " + district + " District, so these are other places with that name. " +
+                "The map databases may use an older district name, so check the surrounding places and coordinates."
+        };
+      }
+      return { places: inside.concat(outside).slice(0, 8), note: "" };
+    }
+
+    // Find a district's coordinates once, then remember them
+    async function resolveDistrict(district) {
+      if (district.latitude !== null) {
+        return district;
+      }
+      const matches = await searchPlaces(district.name);
+      if (matches.length === 0) {
+        throw new Error("DISTRICT_NOT_FOUND");
+      }
+      district.latitude = matches[0].latitude;
+      district.longitude = matches[0].longitude;
+      return district;
     }
 
     async function getForecast(latitude, longitude) {
@@ -271,7 +384,6 @@
       const gusts = daily.wind_gusts_10m_max[i];
       const et0 = daily.et0_fao_evapotranspiration[i];
 
-      // If key data is missing, do not guess
       if (rain === null || wind === null || gusts === null || et0 === null) {
         return { level: "caution", text: "Some forecast data is missing for this day. Check again later." };
       }
@@ -461,7 +573,7 @@
     function useSearchMatch() {
       const place = searchMatches[searchResults.value];
       selectedLocation = {
-        name: place.name,
+        name: place.label,
         latitude: place.latitude,
         longitude: place.longitude
       };
@@ -475,23 +587,26 @@
         return;
       }
 
-      searchMessage.textContent = "Searching...";
+      const district = districtNames[districtSelect.value];
+
+      searchMessage.textContent = "Searching for " + name + " in " + district + " District...";
       searchResults.hidden = true;
       searchResultsLabel.hidden = true;
       searchButton.disabled = true;
 
       try {
-        searchMatches = await searchPlaces(name);
+        const outcome = await searchAllPlaces(name, district, onlyDistrict.checked);
+        searchMatches = outcome.places;
 
         if (searchMatches.length === 0) {
           searchMessage.textContent =
-            "No place found in Uganda with that name. Check the spelling or pick a district.";
+            "No place found. Check the spelling, try the nearest trading centre or sub-county, or pick a district.";
           return;
         }
 
         searchResults.innerHTML = "";
         const labels = searchMatches.map(function (place) {
-          return place.admin1 ? place.name + ", " + place.admin1 : place.name;
+          return place.inDistrict ? "✓ " + place.label : place.label;
         });
         fillDropdown(searchResults, labels);
         searchResults.hidden = false;
@@ -499,7 +614,8 @@
 
         useSearchMatch();
         searchMessage.textContent =
-          "Found " + searchMatches.length + " match(es). Make sure the right one is selected.";
+          "Found " + searchMatches.length + " match(es). A ✓ means labelled inside " + district +
+          " District. Check that the right place is selected. " + outcome.note;
       } catch (error) {
         console.error(error);
         searchMessage.textContent = friendlyError(error);
@@ -509,13 +625,15 @@
     }
 
     async function handleForecast() {
-      const crop = crops[cropSelect.value];
+      const crop = cropOptions[cropSelect.value];
       const activity = activities[activitySelect.value];
 
       showMessage("Loading forecast for " + selectedLocation.name + "...", "info");
       forecastButton.disabled = true;
 
       try {
+        await resolveDistrict(selectedLocation);
+        updateLocationLabel();
         const data = await getForecast(selectedLocation.latitude, selectedLocation.longitude);
         showForecast(selectedLocation, crop, activity, data);
       } catch (error) {
@@ -527,8 +645,8 @@
     }
 
     // ---------- 10. START-UP ----------
-    fillDropdown(districtSelect, districts.map(function (d) { return d.name; }));
-    fillDropdown(cropSelect, crops);
+    fillDropdown(districtSelect, districtNames);
+    fillDropdown(cropSelect, cropOptions);
     fillDropdown(activitySelect, activities);
     updateLocationLabel();
 
