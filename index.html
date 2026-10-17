@@ -4,9 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Uganda Weather and Planting Advisor</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 1rem; line-height: 1.4; }
+    label { display: block; margin-top: 0.75rem; font-weight: bold; }
+    select, input, button { font-size: 1rem; min-height: 44px; padding: 0.4rem 0.6rem; margin: 0.25rem 0; }
+    button { background: #2e8b3d; color: #fff; border: none; border-radius: 6px; padding: 0.5rem 1.2rem; cursor: pointer; }
+    button:disabled { background: #999; cursor: not-allowed; }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; }
+    .card { border: 1px solid #ccc; border-radius: 8px; padding: 0.75rem; }
+    .alert { padding: 0.6rem; border-radius: 6px; margin: 0.4rem 0; }
+    .danger  { background: #fdd;    border-left: 6px solid #c00; }
+    .warning { background: #ffe9b8; border-left: 6px solid #e69500; }
+    .info    { background: #dff0ff; border-left: 6px solid #2a7ac0; }
+    .good    { background: #dff5e1; border-left: 6px solid #2e8b3d; }
+    .caution { background: #fff4c2; border-left: 6px solid #c9a100; }
+    .avoid   { background: #fdd;    border-left: 6px solid #c00; }
+    .advice  { padding: 0.4rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.9rem; }
+    .small   { font-size: 0.85rem; color: #444; }
+    @media (max-width: 600px) {
+      h1 { font-size: 1.5rem; }
+      select, input, button { width: 100%; }
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-  <h1>Weather and Planting Advisor: Milestone 3</h1>
+  <h1>Uganda Weather and Planting Advisor</h1>
+  <p class="small">Local weather forecasts to help farmers decide when to plant, irrigate, spray and harvest.</p>
 
   <h2>1. Location</h2>
   <label for="districtSelect">Choose a district:</label>
@@ -14,10 +40,13 @@
 
   <p>Or search for a town, village or place:</p>
   <label for="searchInput">Place name:</label>
-  <input type="text" id="searchInput" placeholder="e.g. Kyenjojo">
-  <button id="searchButton">Search</button>
+  <div class="row">
+    <input type="text" id="searchInput" placeholder="e.g. Kyenjojo">
+    <button id="searchButton">Search</button>
+  </div>
+  <label for="searchResults" id="searchResultsLabel" hidden>Matches found:</label>
   <select id="searchResults" hidden></select>
-  <p id="searchMessage"></p>
+  <p id="searchMessage" role="status"></p>
 
   <h2>2. Crop</h2>
   <label for="cropSelect">Choose your crop:</label>
@@ -29,10 +58,12 @@
 
   <p><strong>Selected location:</strong> <span id="locationLabel"></span></p>
   <button id="forecastButton">Get forecast</button>
-  <pre id="output">Make your choices and click "Get forecast".</pre>
+  <div id="results" aria-live="polite"><p>Make your choices and click "Get forecast".</p></div>
 
   <script>
-    // ---------- 1. DATA ----------
+    // ---------- 1. DATA AND SETTINGS ----------
+    const REQUEST_TIMEOUT_MS = 10000; // stop waiting after 10 seconds
+
     const districts = [
       { name: "Kampala",    latitude: 0.3476,  longitude: 32.5825 },
       { name: "Wakiso",     latitude: 0.4044,  longitude: 32.4594 },
@@ -54,54 +85,19 @@
       { name: "Kasese",     latitude: 0.1833,  longitude: 30.0833 },
       { name: "Masaka",     latitude: -0.3136, longitude: 31.7409 },
       { name: "Mbarara",    latitude: -0.6072, longitude: 30.6545 },
-      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 },
-      { name: "Rukungiri",  latitude: -0.7928, longitude: 29.9417 },
-      { name: "Ntungamo",   latitude: -0.8833, longitude: 30.2667 },
-      { name: "Bushenyi",   latitude: -0.5417, longitude: 30.2000 },
-      { name: "Kisoro",     latitude: -1.3536, longitude: 29.6986 },
-      { name: "Kanungu",    latitude: -0.9667, longitude: 29.7833 },
-      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 },
-      { name: "Rakai",      latitude: -1.0000, longitude: 31.4000 },
-      { name: "Lyantonde",  latitude: -0.4000, longitude: 31.1500 },
-      { name: "Sembabule",  latitude: -0.0800, longitude: 31.4600 },
-      { name: "Bukomansimbi", latitude: -0.1500, longitude: 31.5000 },
-      { name: "Lwengo",     latitude: -0.2500, longitude: 31.5500 },
-      { name: "Kalungu",    latitude: -0.3000, longitude: 31.6000 },
-      { name: "Kyotera",    latitude: -0.3500, longitude: 31.6500 },
-      { name: "Masindi",    latitude: 1.6744,  longitude: 31.7150 },
-      { name: "Buliisa",    latitude: 2.0000,  longitude: 31.4000 },
-      { name: "Nakasongola",latitude: 1.3000,  longitude: 32.4500 },
-      { name: "Amolatar",   latitude: 1.6500,  longitude: 32.7500 },
-      { name: "Dokolo",     latitude: 2.2500,  longitude: 33.2000 },
-      { name: "Kaberamaido",latitude: 1.7500,  longitude: 33.0000 },
-      { name: "Pader",      latitude: 3.0500,  longitude: 33.0000 },
-      { name: "Kitgum",     latitude: 3.2783,  longitude: 32.8867 },
-      { name: "Lamwo",      latitude: 3.5000,  longitude: 32.8000 },
-      { name: "Agago",      latitude: 2.9000,  longitude: 33.2000 }
+      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 }
     ];
 
     const crops = [
       "Maize", "Beans", "Coffee", "Bananas (matooke)", "Cassava",
-      "Sweet potatoes", "Rice", "Groundnuts", "Tomatoes", "Onions",
-"Cabbage", "Sorghum", "Millet", "Sunflower", "Sugarcane",
-      "Tea", "Tobacco", "Pineapples", "Avocado", "Mangoes",
-        "Passion fruit", "Papaya", "Watermelon", "Citrus fruits", "Vegetables",
-        "Potatoes", "Yams", "Cocoa", "Sesame", "Chili peppers",
-        "Cucumbers", "Pumpkins", "Spinach", "Carrots", "Eggplants",
-        "Okra", "Peas", "Lettuce", "Broccoli", "Cauliflower",
-        "Brussels sprouts", "Kale", "Collard greens", "Mustard greens", "Swiss chard", "Arugula", "Radishes", "Beets", "Turnips",
-        "Leeks", "Scallions", "Shallots", "Garlic", "Ginger", "Turmeric", "Herbs (basil, parsley, cilantro, etc.)", "Moringa", "Baobab", "Jatropha",
-        "Oil palm", "Rubber", "Cotton", "Hemp", "Flax", "Sunflower", "Safflower", "Canola", "Sesame", "Castor bean",
-        "Jojoba", "Neem", "Aloe vera", "Cactus", "Bamboo", "Teak", "Eucalyptus", "Mahogany", "Acacia", "Pine", "Cedar", "Fir", "Spruce", "Redwood",
-        "Cypress", "Hemlock", "Larch", "Douglas fir", "Sequoia", "Baobab", "Kapok", "Mangrove", "Palm trees", "Fruit trees (apple, pear, peach, etc.)", "Nut trees (almond, walnut, cashew, etc.)",
-        "Ornamental plants (flowers, shrubs, etc.)", "Medicinal plants (aloe, ginseng, echinacea, etc.)", "Spices (cinnamon, cloves, nutmeg, etc.)", "Tea plants", "Coffee plants", "Cacao trees", "Vanilla orchids", "Peppermint", "Spearmint", "Lemongrass", "Chamomile", "Lavender", "Rosemary", "Thyme", "Oregano", "Sage", "Bay leaves"
+      "Sweet potatoes", "Rice", "Groundnuts", "Tomatoes"
     ];
 
     const activities = ["Planting", "Irrigating", "Spraying", "Harvesting"];
 
-    // The location currently chosen (starts as the first district)
+    const levelLabels = { good: "GOOD", caution: "CAUTION", avoid: "AVOID" };
+
     let selectedLocation = districts[0];
-    // The matches returned by the last place search
     let searchMatches = [];
 
     // ---------- 2. PAGE ELEMENTS ----------
@@ -109,12 +105,13 @@
     const searchInput = document.getElementById("searchInput");
     const searchButton = document.getElementById("searchButton");
     const searchResults = document.getElementById("searchResults");
+    const searchResultsLabel = document.getElementById("searchResultsLabel");
     const searchMessage = document.getElementById("searchMessage");
     const cropSelect = document.getElementById("cropSelect");
     const activitySelect = document.getElementById("activitySelect");
     const locationLabel = document.getElementById("locationLabel");
     const forecastButton = document.getElementById("forecastButton");
-    const output = document.getElementById("output");
+    const results = document.getElementById("results");
 
     // ---------- 3. HELPER FUNCTIONS ----------
     function fillDropdown(selectElement, labels) {
@@ -131,18 +128,86 @@
         " (" + selectedLocation.latitude + ", " + selectedLocation.longitude + ")";
     }
 
-    // ---------- 4. API FUNCTIONS ----------
+    function formatDate(isoDate) {
+      const date = new Date(isoDate);
+      return date.toLocaleDateString("en-GB", {
+        weekday: "short", day: "numeric", month: "short", timeZone: "UTC"
+      });
+    }
+
+    // Show a value with its unit, or "not available" if it is missing
+    function fmt(value, unit) {
+      if (value === null || value === undefined) {
+        return "not available";
+      }
+      return value + unit;
+    }
+
+    // Show a plain message in the results area
+    function showMessage(text, level) {
+      results.innerHTML = "";
+      const box = document.createElement("div");
+      box.className = level ? "alert " + level : "";
+      if (level === "danger") {
+        box.setAttribute("role", "alert");
+      }
+      box.textContent = text;
+      results.appendChild(box);
+    }
+
+    // ---------- 4. ERROR HANDLING ----------
+    // Turn a technical error into a message a farmer can understand
+    function friendlyError(error) {
+      if (!navigator.onLine) {
+        return "You seem to be offline. Check your phone data or Wi-Fi and try again.";
+      }
+      if (error.message === "TIMEOUT") {
+        return "The connection is too slow and the forecast did not arrive. Move to a place with better signal, then try again.";
+      }
+      if (error.message === "STATUS_429") {
+        return "Too many requests right now. Please wait a minute and try again.";
+      }
+      if (error.message.indexOf("STATUS_5") === 0) {
+        return "The weather service is having problems. Please try again later.";
+      }
+      if (error.message === "BAD_DATA") {
+        return "The weather service sent incomplete information. Please try again.";
+      }
+      if (error.name === "TypeError") {
+        return "Could not reach the weather service. Check your internet connection and try again.";
+      }
+      return "Something went wrong. Please try again.";
+    }
+
+    // ---------- 5. API FUNCTIONS ----------
+    // One safe way to fetch JSON: with a timeout and clear error codes
+    async function fetchJson(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) {
+          throw new Error("STATUS_" + response.status);
+        }
+        return await response.json();
+      } catch (error) {
+        if (error.name === "AbortError") {
+          throw new Error("TIMEOUT");
+        }
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
     async function searchPlaces(name) {
       const url =
         "https://geocoding-api.open-meteo.com/v1/search" +
         "?name=" + encodeURIComponent(name) +
         "&count=5&language=en&format=json&countryCode=UG";
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Search failed with status " + response.status);
-      }
-      const data = await response.json();
+      const data = await fetchJson(url);
       return data.results || [];
     }
 
@@ -151,19 +216,243 @@
         "https://api.open-meteo.com/v1/forecast" +
         "?latitude=" + latitude +
         "&longitude=" + longitude +
+        "&current=temperature_2m,precipitation,wind_speed_10m" +
         "&daily=precipitation_probability_max,precipitation_sum," +
-        "temperature_2m_max,temperature_2m_min,wind_speed_10m_max" +
+        "temperature_2m_max,temperature_2m_min,wind_speed_10m_max," +
+        "wind_gusts_10m_max,et0_fao_evapotranspiration" +
         "&timezone=Africa/Kampala&forecast_days=7";
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Server replied with status " + response.status);
+      const data = await fetchJson(url);
+      if (!data.daily || !data.current) {
+        throw new Error("BAD_DATA");
       }
-      const data = await response.json();
-      return data.daily;
+      return data;
     }
 
-    // ---------- 5. EVENT HANDLERS ----------
+    // ---------- 6. RAIN ALERTS ----------
+    function getRainAlerts(daily) {
+      const alerts = [];
+      let dryDays = 0;
+
+      daily.time.forEach(function (day, i) {
+        const chance = daily.precipitation_probability_max[i];
+        const rain = daily.precipitation_sum[i];
+
+        if (rain === null) {
+          return; // no rainfall data for this day, so skip it
+        }
+
+        if (rain >= 20) {
+          alerts.push({ level: "danger",
+            text: "HEAVY RAIN: " + formatDate(day) + ", about " + rain + " mm expected." });
+        } else if (chance !== null && chance >= 60) {
+          alerts.push({ level: "warning",
+            text: "RAIN LIKELY: " + formatDate(day) + ", " + chance + "% chance, about " + rain + " mm." });
+        }
+
+        if (rain < 1) {
+          dryDays++;
+        }
+      });
+
+      if (dryDays >= 6) {
+        alerts.push({ level: "info",
+          text: "MOSTLY DRY WEEK: " + dryDays + " of 7 days have almost no rain expected." });
+      }
+      return alerts;
+    }
+
+    // ---------- 7. RECOMMENDATIONS AND UNCERTAINTY ----------
+    // All thresholds are teaching defaults. Have an agronomist review them.
+    function getDayAdvice(activity, daily, i) {
+      const chance = daily.precipitation_probability_max[i];
+      const rain = daily.precipitation_sum[i];
+      const wind = daily.wind_speed_10m_max[i];
+      const gusts = daily.wind_gusts_10m_max[i];
+      const et0 = daily.et0_fao_evapotranspiration[i];
+
+      // If key data is missing, do not guess
+      if (rain === null || wind === null || gusts === null || et0 === null) {
+        return { level: "caution", text: "Some forecast data is missing for this day. Check again later." };
+      }
+
+      const chanceValue = chance === null ? 0 : chance;
+
+      if (activity === "Planting") {
+        if (rain >= 20) {
+          return { level: "avoid", text: "Heavy rain (" + rain + " mm) may wash seeds away or flood the field." };
+        }
+        if (rain >= 2) {
+          return { level: "good", text: "Rain (" + rain + " mm) should keep the soil moist for seeds." };
+        }
+        return { level: "caution", text: "Dry day. Plant only if the soil is already moist or you can irrigate." };
+      }
+
+      if (activity === "Irrigating") {
+        if (rain >= 10) {
+          return { level: "avoid", text: "Not needed: " + rain + " mm of rain should water the crop." };
+        }
+        if (rain < 2 && et0 >= 4) {
+          return { level: "good", text: "Dry with high water loss (" + et0 + " mm). Irrigation is useful." };
+        }
+        return { level: "caution", text: "Moderate. Check the soil by hand before you irrigate." };
+      }
+
+      if (activity === "Spraying") {
+        if (rain >= 2 || chanceValue >= 60 || gusts >= 30) {
+          return { level: "avoid", text: "Rain may wash the spray off, or strong gusts (" + gusts + " km/h) may blow it away." };
+        }
+        if (chanceValue >= 30 || wind >= 15 || gusts >= 20) {
+          return { level: "caution", text: "Some rain chance or wind. Spray early in the morning if you must. Read the product label." };
+        }
+        return { level: "good", text: "Low rain chance and light wind. Good conditions for spraying." };
+      }
+
+      if (activity === "Harvesting") {
+        if (rain >= 5 || chanceValue >= 60) {
+          return { level: "avoid", text: "Rain is likely. Harvested crops may get wet or spoil." };
+        }
+        if (chanceValue >= 30 || rain >= 1) {
+          return { level: "caution", text: "Some rain risk. Be ready to cover or dry your harvest." };
+        }
+        return { level: "good", text: "Dry day with low rain chance. Good for harvesting and drying." };
+      }
+
+      return { level: "caution", text: "No advice rules for this activity yet." };
+    }
+
+    function getRecommendation(activity, daily) {
+      const days = [];
+      const goodDays = [];
+
+      daily.time.forEach(function (day, i) {
+        const advice = getDayAdvice(activity, daily, i);
+        days.push(advice);
+        if (advice.level === "good") {
+          goodDays.push(formatDate(day));
+        }
+      });
+      return { days: days, goodDays: goodDays };
+    }
+
+    function getConfidence(i) {
+      if (i <= 2) { return "Higher"; }
+      if (i <= 4) { return "Medium"; }
+      return "Lower";
+    }
+
+    function addUncertaintyBox() {
+      const box = document.createElement("div");
+      box.className = "alert info";
+
+      const title = document.createElement("strong");
+      title.textContent = "How sure is this forecast?";
+      box.appendChild(title);
+
+      const points = [
+        "A forecast is a computer prediction, not a promise. It can be wrong.",
+        "A 40% rain chance means that, in roughly 4 out of 10 similar situations, rain falls. It does not say how much, or exactly where.",
+        "The further ahead, the less reliable. Days 1 to 3 are more reliable than days 6 and 7. Check again every morning.",
+        "The weather model covers squares several kilometres wide. Hills, lakes and mountains can make your farm differ from the forecast.",
+        "This advice uses general weather rules only. It does not know your soil, your crop variety or your field. Look at the sky, ask neighbours, and talk to your extension officer before big decisions."
+      ];
+
+      const list = document.createElement("ul");
+      points.forEach(function (point) {
+        const item = document.createElement("li");
+        item.textContent = point;
+        list.appendChild(item);
+      });
+      box.appendChild(list);
+      return box;
+    }
+
+    // ---------- 8. DISPLAY ----------
+    function showForecast(location, crop, activity, data) {
+      results.innerHTML = "";
+      const daily = data.daily;
+
+      const heading = document.createElement("h2");
+      heading.textContent = "Forecast for " + location.name;
+      results.appendChild(heading);
+
+      const summary = document.createElement("p");
+      summary.textContent = "Crop: " + crop + " | Activity: " + activity;
+      results.appendChild(summary);
+
+      const now = data.current;
+      const nowLine = document.createElement("p");
+      nowLine.textContent = "Right now: " + fmt(now.temperature_2m, "°C") +
+        ", wind " + fmt(now.wind_speed_10m, " km/h") +
+        ", rain in the past hour " + fmt(now.precipitation, " mm") + ".";
+      results.appendChild(nowLine);
+
+      const alertsHeading = document.createElement("h3");
+      alertsHeading.textContent = "Rain alerts";
+      results.appendChild(alertsHeading);
+
+      const alerts = getRainAlerts(daily);
+      if (alerts.length === 0) {
+        const none = document.createElement("p");
+        none.textContent = "No rain alerts: no heavy or very likely rain in the next 7 days.";
+        results.appendChild(none);
+      }
+      alerts.forEach(function (alert) {
+        const box = document.createElement("div");
+        box.className = "alert " + alert.level;
+        box.textContent = alert.text;
+        results.appendChild(box);
+      });
+
+      const recommendation = getRecommendation(activity, daily);
+
+      const recHeading = document.createElement("h3");
+      recHeading.textContent = "Advice for " + activity + " (" + crop + ")";
+      results.appendChild(recHeading);
+
+      const recBox = document.createElement("div");
+      if (recommendation.goodDays.length > 0) {
+        recBox.className = "alert good";
+        recBox.textContent = "Days rated GOOD for " + activity + ": " +
+          recommendation.goodDays.join(", ") + ". The earlier days are more reliable.";
+      } else {
+        recBox.className = "alert caution";
+        recBox.textContent = "No day this week is clearly good for " + activity +
+          ". Read the daily notes below and check the forecast again tomorrow.";
+      }
+      results.appendChild(recBox);
+
+      results.appendChild(addUncertaintyBox());
+
+      const cardsHeading = document.createElement("h3");
+      cardsHeading.textContent = "7-day forecast";
+      results.appendChild(cardsHeading);
+
+      const cards = document.createElement("div");
+      cards.className = "cards";
+
+      daily.time.forEach(function (day, i) {
+        const advice = recommendation.days[i];
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML =
+          "<strong>" + formatDate(day) + "</strong><br>" +
+          "Rain chance: " + fmt(daily.precipitation_probability_max[i], "%") + "<br>" +
+          "Rainfall: " + fmt(daily.precipitation_sum[i], " mm") + "<br>" +
+          "Temp: " + fmt(daily.temperature_2m_min[i], "") + " to " + fmt(daily.temperature_2m_max[i], "°C") + "<br>" +
+          "Wind: up to " + fmt(daily.wind_speed_10m_max[i], " km/h") + "<br>" +
+          "Gusts: up to " + fmt(daily.wind_gusts_10m_max[i], " km/h") + "<br>" +
+          "Water loss: " + fmt(daily.et0_fao_evapotranspiration[i], " mm") + "<br>" +
+          "<span class='small'>Confidence: " + getConfidence(i) + "</span>" +
+          "<div class='advice " + advice.level + "'><strong>" +
+          levelLabels[advice.level] + "</strong>: " + advice.text + "</div>";
+        cards.appendChild(card);
+      });
+      results.appendChild(cards);
+    }
+
+    // ---------- 9. EVENT HANDLERS ----------
     function useDistrict() {
       selectedLocation = districts[districtSelect.value];
       updateLocationLabel();
@@ -188,6 +477,8 @@
 
       searchMessage.textContent = "Searching...";
       searchResults.hidden = true;
+      searchResultsLabel.hidden = true;
+      searchButton.disabled = true;
 
       try {
         searchMatches = await searchPlaces(name);
@@ -204,12 +495,16 @@
         });
         fillDropdown(searchResults, labels);
         searchResults.hidden = false;
+        searchResultsLabel.hidden = false;
 
         useSearchMatch();
         searchMessage.textContent =
           "Found " + searchMatches.length + " match(es). Make sure the right one is selected.";
       } catch (error) {
-        searchMessage.textContent = "Something went wrong: " + error.message;
+        console.error(error);
+        searchMessage.textContent = friendlyError(error);
+      } finally {
+        searchButton.disabled = false;
       }
     }
 
@@ -217,21 +512,21 @@
       const crop = crops[cropSelect.value];
       const activity = activities[activitySelect.value];
 
-      output.textContent = "Loading forecast for " + selectedLocation.name + "...";
+      showMessage("Loading forecast for " + selectedLocation.name + "...", "info");
+      forecastButton.disabled = true;
 
       try {
-        const daily = await getForecast(selectedLocation.latitude, selectedLocation.longitude);
-        output.textContent =
-          "Location: " + selectedLocation.name + "\n" +
-          "Crop: " + crop + "\n" +
-          "Activity: " + activity + "\n\n" +
-          JSON.stringify(daily, null, 2);
+        const data = await getForecast(selectedLocation.latitude, selectedLocation.longitude);
+        showForecast(selectedLocation, crop, activity, data);
       } catch (error) {
-        output.textContent = "Something went wrong: " + error.message;
+        console.error(error);
+        showMessage(friendlyError(error), "danger");
+      } finally {
+        forecastButton.disabled = false;
       }
     }
 
-    // ---------- 6. START-UP ----------
+    // ---------- 10. START-UP ----------
     fillDropdown(districtSelect, districts.map(function (d) { return d.name; }));
     fillDropdown(cropSelect, crops);
     fillDropdown(activitySelect, activities);
@@ -240,6 +535,11 @@
     districtSelect.addEventListener("change", useDistrict);
     searchResults.addEventListener("change", useSearchMatch);
     searchButton.addEventListener("click", handleSearch);
+    searchInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        handleSearch();
+      }
+    });
     forecastButton.addEventListener("click", handleForecast);
   </script>
 </body>
