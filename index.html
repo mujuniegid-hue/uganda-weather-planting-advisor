@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"></html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uganda Weather Planting Advisor</title>
+</head>
+<body>
+    <h1>Uganda Weather Planting Advisor:Milestone 1</h1>
+    <button id="testButton">Get Kampala forecast</button>
+    <pre id="output">Click the button to load data.</pre>
+
+    <script>
+        const latitude = 0.3476; // Latitude for Kampala
+        const longitude = 32.5825; // Longitude for Kampala
+        async function getForecast() {
+            const output = document.getElementById("output");
+            output.textContent = "Loading...";
+
+            const url =
+            "https://api.open-meteo.com/v1/forecast" +
+            "?latitude=" + latitude +
+            "&longitude=" + longitude +
+            "&daily=precipitation_probability_max,precipitation_sum," +
+            "temperature_2m_max,temperature_2m_min,wind_speed_10m_max" +
+            "&timezone=Africa/Kampala&forecast_days=7";
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error("Server replied with status: " + response.status);
+                }
+                const data = await response.json();
+                output.textContent = JSON.stringify(data, null, 2);
+            } catch (error) {
+                output.textContent = "Something went wrong: " + error.message;
+            }
+        }
+        document.getElementById("testButton").addEventListener("click", getForecast);
+    </script>
+</body>
+</html>
