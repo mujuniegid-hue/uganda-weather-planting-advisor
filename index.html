@@ -1,42 +1,93 @@
 <!DOCTYPE html>
-<html lang="en"></html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Uganda Weather Planting Advisor</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uganda Weather and Planting Advisor</title>
 </head>
 <body>
-    <h1>Uganda Weather Planting Advisor:Milestone 1</h1>
-    <button id="testButton">Get Kampala forecast</button>
-    <pre id="output">Click the button to load data.</pre>
+  <h1>Weather and Planting Advisor: Milestone 2</h1>
 
-    <script>
-        const latitude = 0.3476; // Latitude for Kampala
-        const longitude = 32.5825; // Longitude for Kampala
-        async function getForecast() {
-            const output = document.getElementById("output");
-            output.textContent = "Loading...";
+  <label for="districtSelect">Choose your district:</label>
+  <select id="districtSelect"></select>
 
-            const url =
-            "https://api.open-meteo.com/v1/forecast" +
-            "?latitude=" + latitude +
-            "&longitude=" + longitude +
-            "&daily=precipitation_probability_max,precipitation_sum," +
-            "temperature_2m_max,temperature_2m_min,wind_speed_10m_max" +
-            "&timezone=Africa/Kampala&forecast_days=7";
+  <button id="forecastButton">Get forecast</button>
+  <pre id="output">Pick a district and click the button.</pre>
 
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error("Server replied with status: " + response.status);
-                }
-                const data = await response.json();
-                output.textContent = JSON.stringify(data, null, 2);
-            } catch (error) {
-                output.textContent = "Something went wrong: " + error.message;
-            }
-        }
-        document.getElementById("testButton").addEventListener("click", getForecast);
-    </script>
+  <script>
+    // 1. The "phone book" of districts (approximate coordinates)
+    const districts = [
+      { name: "Kampala",    latitude: 0.3476,  longitude: 32.5825 },
+      { name: "Wakiso",     latitude: 0.4044,  longitude: 32.4594 },
+      { name: "Mukono",     latitude: 0.3533,  longitude: 32.7553 },
+      { name: "Jinja",      latitude: 0.4244,  longitude: 33.2041 },
+      { name: "Iganga",     latitude: 0.6092,  longitude: 33.4686 },
+      { name: "Tororo",     latitude: 0.6928,  longitude: 34.1810 },
+      { name: "Mbale",      latitude: 1.0821,  longitude: 34.1750 },
+      { name: "Soroti",     latitude: 1.7147,  longitude: 33.6111 },
+      { name: "Moroto",     latitude: 2.5345,  longitude: 34.6666 },
+      { name: "Lira",       latitude: 2.2499,  longitude: 32.8998 },
+      { name: "Gulu",       latitude: 2.7724,  longitude: 32.2881 },
+      { name: "Kitgum",     latitude: 3.2783,  longitude: 32.8867 },
+      { name: "Arua",       latitude: 3.0200,  longitude: 30.9110 },
+      { name: "Masindi",    latitude: 1.6744,  longitude: 31.7150 },
+      { name: "Hoima",      latitude: 1.4331,  longitude: 31.3524 },
+      { name: "Mubende",    latitude: 0.5594,  longitude: 31.3958 },
+      { name: "Kabarole",   latitude: 0.6710,  longitude: 30.2748 },
+      { name: "Kasese",     latitude: 0.1833,  longitude: 30.0833 },
+      { name: "Masaka",     latitude: -0.3136, longitude: 31.7409 },
+      { name: "Mbarara",    latitude: -0.6072, longitude: 30.6545 },
+      { name: "Kabale",     latitude: -1.2490, longitude: 29.9899 }
+    ];
+
+    // 2. Grab the page elements we need
+    const districtSelect = document.getElementById("districtSelect");
+    const forecastButton = document.getElementById("forecastButton");
+    const output = document.getElementById("output");
+
+    // 3. Fill the dropdown from the list
+    districts.forEach(function (district, index) {
+      const option = document.createElement("option");
+      option.value = index;
+      option.textContent = district.name;
+      districtSelect.appendChild(option);
+    });
+
+    // 4. Get a forecast for any coordinates
+    async function getForecast(latitude, longitude) {
+      const url =
+        "https://api.open-meteo.com/v1/forecast" +
+        "?latitude=" + latitude +
+        "&longitude=" + longitude +
+        "&daily=precipitation_probability_max,precipitation_sum," +
+        "temperature_2m_max,temperature_2m_min,wind_speed_10m_max" +
+        "&timezone=Africa/Kampala&forecast_days=7";
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Server replied with status " + response.status);
+      }
+      const data = await response.json();
+      return data.daily;
+    }
+
+    // 5. What happens when the button is clicked
+    async function handleClick() {
+      const chosen = districts[districtSelect.value];
+      output.textContent = "Loading forecast for " + chosen.name + "...";
+
+      try {
+        const daily = await getForecast(chosen.latitude, chosen.longitude);
+        output.textContent =
+          "District: " + chosen.name + "\n" +
+          "Coordinates: " + chosen.latitude + ", " + chosen.longitude + "\n\n" +
+          JSON.stringify(daily, null, 2);
+      } catch (error) {
+        output.textContent = "Something went wrong: " + error.message;
+      }
+    }
+
+    forecastButton.addEventListener("click", handleClick);
+  </script>
 </body>
 </html>
