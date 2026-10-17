@@ -2,7 +2,7 @@
 
 A free, mobile-friendly web app that helps smallholder farmers and agricultural extension workers in Uganda use local weather forecasts to decide **when to plant, irrigate, spray crops and harvest**.
 
-**Live demo:** https://mujuniegid-hue.github.io./uganda-weather-planting-advisor/
+**Live demo:** https://mujuniegid-hue.github.io/uganda-weather-planting-advisor/
 
 ## The problem
 
